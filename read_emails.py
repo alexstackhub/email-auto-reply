@@ -27,7 +27,7 @@ def get_gmail_service():
 def list_recent_emails():
     service = get_gmail_service()
 
-    results = results = service.users().messages().list(userId="me", labelIds=["INBOX"], maxResults=5).execute()
+    results = service.users().messages().list(userId="me", labelIds=["INBOX", "CATEGORY_PERSONAL"], maxResults=5).execute()
     messages = results.get("messages", [])
 
     if not messages:
