@@ -1,1 +1,0 @@
-print("Hello, this is my auto-reply project starting up!")
