@@ -7,7 +7,7 @@ model = SentenceTransformer("all-MiniLM-L6-v2")
 template_questions = [t["question"] for t in TEMPLATES]
 template_embeddings = model.encode(template_questions)
 
-def classify(email_text, threshold=0.6):
+def classify(email_text, threshold=0.45):
     email_embedding = model.encode(email_text)
 
     scores = util.cos_sim(email_embedding, template_embeddings)[0]

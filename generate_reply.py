@@ -1,4 +1,5 @@
 import os
+import time
 from dotenv import load_dotenv
 from google import genai
 
@@ -26,11 +27,24 @@ Reply:
 <the reply text>
 """
 
-    response = client.models.generate_content(
-        model="gemini-3.5-flash",
-        contents=prompt
-    )
-    return response.text
+    for attempt in range(1, 4):
+        try:
+            response = client.models.generate_content(
+                model="gemini-flash-latest",
+                contents=prompt
+            )
+            return response.text
+        except Exception as e:
+            print(f"  (Gemini call failed, attempt {attempt}/3: {e})")
+            if attempt < 3:
+                time.sleep(3 * attempt)  # waits 3s, then 6s, before retrying
+            else:
+                raise  # after 3 failed tries, give up and let the caller handle it
+
+def extract_reply_text(model_output):
+    if "Reply:" in model_output:
+        return model_output.split("Reply:", 1)[1].strip()
+    return model_output.strip()
 
 if __name__ == "__main__":
     test_email = "Dear Sir/Madam, I am writing to inquire about the status of my application submitted on July 10th. I would appreciate an update at your earliest convenience. Kind regards, J. Adeyemi"
