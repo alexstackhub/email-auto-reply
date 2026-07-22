@@ -1,6 +1,9 @@
 import base64
 from email.mime.text import MIMEText
 from gmail_auth import get_gmail_service
+import os
+from dotenv import load_dotenv
+load_dotenv()
 
 def create_draft(to, subject, body_text):
     service = get_gmail_service()
@@ -20,7 +23,8 @@ def create_draft(to, subject, body_text):
 
 if __name__ == "__main__":
     create_draft(
-        to="your_own_email@gmail.com",   # <- change this to your real address
+        to=os.environ["MY_EMAIL"],
         subject="Test Draft",
         body_text="This is a test draft created by my auto-reply script."
     )
+    
