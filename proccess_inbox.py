@@ -3,6 +3,15 @@ from email.mime.text import MIMEText
 from gmail_auth import get_gmail_service
 from classify_email import classify
 from generate_reply import draft_reply, extract_reply_text
+from scheduler import schedule_send
+from processed_tracker import load_processed, mark_processed
+
+DELAY_PRESETS = {
+    "auto_send": 0,
+    "43_minutes": 43,
+    "2_hours": 120,
+    "3_hours": 180,
+}
 
 def is_likely_automated(sender):
     automated_signals = ["noreply", "no-reply", "notification", "donotreply", "do-not-reply"]
@@ -36,8 +45,10 @@ def create_reply_draft(service, original_msg, reply_text):
     ).execute()
     return draft
 
-def process_inbox(max_results=3):
+def process_inbox(max_results=5, template_delay_minutes=180):
     service = get_gmail_service()
+    processed_ids = load_processed()
+
     results = service.users().messages().list(
         userId="me", labelIds=["INBOX", "CATEGORY_PERSONAL"], maxResults=max_results
     ).execute()
@@ -47,8 +58,14 @@ def process_inbox(max_results=3):
         print("No emails found.")
         return
 
+    new_count = 0
     for msg in messages:
-        msg_data = service.users().messages().get(userId="me", id=msg["id"]).execute()
+        msg_id = msg["id"]
+        if msg_id in processed_ids:
+            continue  # already handled in an earlier run
+
+        new_count += 1
+        msg_data = service.users().messages().get(userId="me", id=msg_id).execute()
         headers = msg_data["payload"]["headers"]
         subject = get_header(headers, "Subject")
         sender = get_header(headers, "From")
@@ -61,10 +78,10 @@ def process_inbox(max_results=3):
 
         if is_likely_automated(sender):
             print("Decision: SKIPPED (looks automated/no-reply)")
+            mark_processed(msg_id)
             continue
 
         result = classify(snippet)
-        ...
 
         if result["match"]:
             reply_text = result["template_reply"]
@@ -74,11 +91,24 @@ def process_inbox(max_results=3):
                 reply_text = extract_reply_text(draft_reply(snippet))
                 print("Decision: AI-GENERATED")
             except Exception as e:
-                print(f"Decision: SKIPPED (AI failed after retries: {e})")
-                continue
+                print(f"Decision: SKIPPED (AI failed: {e}) - will retry next run")
+                continue  # not marked processed, so it tries again next cycle
 
         draft = create_reply_draft(service, msg_data, reply_text)
         print(f"Draft created: {draft['id']}")
+        mark_processed(msg_id)
+
+        if result["match"]:
+            if template_delay_minutes == 0:
+                service.users().drafts().send(userId="me", body={"id": draft["id"]}).execute()
+                print("  Sent immediately (Auto send)")
+            else:
+                schedule_send(draft["id"], subject, delay_minutes=template_delay_minutes)
+        else:
+            print("  Left as draft only — AI-generated replies always require manual review and send")
+
+    if new_count == 0:
+        print("No new emails since last run.")
 
 if __name__ == "__main__":
-    process_inbox(max_results=5)
+    process_inbox(max_results=5, template_delay_minutes=DELAY_PRESETS["3_hours"])
