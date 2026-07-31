@@ -16,7 +16,7 @@ def log(message):
 def check_inbox_job():
     log("Checking inbox...")
     try:
-        process_inbox(max_results=5, template_delay_minutes=DELAY_PRESETS["3_hours"])
+        process_inbox(max_results=5, template_delay_minutes=DELAY_PRESETS["5_minutes"])
     except Exception as e:
         log(f"Inbox check failed: {e}")
 
@@ -28,8 +28,8 @@ def send_check_job():
         log(f"Send check failed: {e}")
 
 scheduler = BackgroundScheduler()
-scheduler.add_job(check_inbox_job, "interval", minutes=30, next_run_time=datetime.now())
-scheduler.add_job(send_check_job, "interval", minutes=10, next_run_time=datetime.now())
+scheduler.add_job(check_inbox_job, "interval", minutes=5, next_run_time=datetime.now())
+scheduler.add_job(send_check_job, "interval", minutes=5, next_run_time=datetime.now())
 scheduler.start()
 
 @app.route("/status")

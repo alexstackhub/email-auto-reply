@@ -7,15 +7,17 @@ from classify_email import classify
 from generate_reply import draft_reply, extract_reply_text
 from scheduler import schedule_send
 from processed_tracker import load_processed, mark_processed
+from ai_log import log_ai_handled
 
 DELAY_PRESETS = {
     "auto_send": 0,
+    "5_minutes": 5,
     "43_minutes": 43,
     "2_hours": 120,
     "3_hours": 180,
 }
 
-MAX_BODY_CHARS = 2000  # keeps AI calls fast/cheap and avoids huge quoted email chains
+MAX_BODY_CHARS = 2000  
 
 def is_likely_automated(sender):
     automated_signals = ["noreply", "no-reply", "notification", "donotreply", "do-not-reply"]
@@ -26,16 +28,11 @@ def get_header(headers, name):
     return next((h["value"] for h in headers if h["name"].lower() == name.lower()), "")
 
 def strip_html(raw_html):
-    # Removes HTML tags and decodes entities like &amp; back into normal characters,
-    # used only as a fallback when an email has no plain-text version at all.
     text = re.sub(r"<[^>]+>", " ", raw_html)
     text = html.unescape(text)
     return re.sub(r"\s+", " ", text).strip()
 
 def get_email_body(payload):
-    # Gmail messages are structured, not flat text. This walks that structure
-    # looking for a text/plain part first (preferred), falling back to text/html
-    # only if that's genuinely all the email has.
     if "parts" in payload:
         for part in payload["parts"]:
             if part.get("mimeType") == "text/plain":
@@ -146,10 +143,10 @@ def process_inbox(max_results=5, template_delay_minutes=180):
             else:
                 schedule_send(draft["id"], subject, delay_minutes=template_delay_minutes)
         else:
-            print("  Left as draft only — AI-generated replies always require manual review and send")
+            print(" Requires Manual Review To Send")
 
     if new_count == 0:
         print("No new emails since last run.")
 
 if __name__ == "__main__":
-    process_inbox(max_results=5, template_delay_minutes=DELAY_PRESETS["3_hours"])
+    process_inbox(max_results=5, template_delay_minutes=DELAY_PRESETS["5_minutes"])

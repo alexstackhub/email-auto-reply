@@ -29,7 +29,7 @@ def run_forever():
             except Exception as e:
                 log(f"Send check failed: {e}")
 
-        time.sleep(60)  # check every minute whether it's time to run either task
+        time.sleep(60)  
         seconds_elapsed += 60
 
 if __name__ == "__main__":

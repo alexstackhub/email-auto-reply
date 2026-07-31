@@ -2,17 +2,16 @@ import os
 import time
 from dotenv import load_dotenv
 from google import genai
-from templates import TEMPLATES
+from templates_store import load_templates
 
 load_dotenv()
 client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
 def build_known_facts():
-    # Pulls the unique reply text from every template — these are facts
-    # you've already written and trust, safe to hand to the AI as reference.
+    templates = load_templates()
     seen = set()
     facts = []
-    for t in TEMPLATES:
+    for t in templates:
         if t["reply"] not in seen:
             seen.add(t["reply"])
             facts.append(f"- {t['reply']}")
