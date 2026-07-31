@@ -8,6 +8,7 @@ from generate_reply import draft_reply, extract_reply_text
 from scheduler import schedule_send
 from processed_tracker import load_processed, mark_processed
 from ai_log import log_ai_handled
+from draft_tracker import track_draft
 
 DELAY_PRESETS = {
     "auto_send": 0,
@@ -135,6 +136,7 @@ def process_inbox(max_results=5, template_delay_minutes=180):
         draft = create_reply_draft(service, msg_data, reply_text)
         print(f"Draft created: {draft['id']}")
         mark_processed(msg_id)
+        track_draft(draft["id"], subject, sender, "template" if result["match"] else "ai")
 
         if result["match"]:
             if template_delay_minutes == 0:

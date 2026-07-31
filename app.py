@@ -5,6 +5,9 @@ from proccess_inbox import process_inbox, DELAY_PRESETS
 from send_scheduled_drafts import send_due_drafts
 from scheduler import load_schedule
 from templates_store import load_templates, add_template
+from gmail_auth import get_gmail_service
+from draft_tracker import load_tracked_drafts
+from suggest_templates import find_suggested_templates
 
 app = Flask(__name__)
 
@@ -53,6 +56,22 @@ def add_new_template():
 
     add_template(question, reply)
     return jsonify({"success": True, "question": question, "reply": reply})
+
+@app.route("/pending-drafts")
+def pending_drafts():
+    service = get_gmail_service()
+    live_drafts = service.users().drafts().list(userId="me").execute()
+    live_ids = {d["id"] for d in live_drafts.get("drafts", [])}
+
+    tracked = load_tracked_drafts()
+    still_pending = [d for d in tracked if d["draft_id"] in live_ids]
+
+    return jsonify(still_pending)
+
+@app.route("/suggestions")
+def get_suggestions():
+    suggestions = find_suggested_templates()
+    return jsonify(suggestions)
 
 @app.route("/status")
 def status():
