@@ -1,8 +1,10 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime
 from proccess_inbox import process_inbox, DELAY_PRESETS
 from send_scheduled_drafts import send_due_drafts
+from scheduler import load_schedule
+from templates_store import load_templates, add_template
 
 app = Flask(__name__)
 
@@ -31,6 +33,26 @@ scheduler = BackgroundScheduler()
 scheduler.add_job(check_inbox_job, "interval", minutes=5, next_run_time=datetime.now())
 scheduler.add_job(send_check_job, "interval", minutes=5, next_run_time=datetime.now())
 scheduler.start()
+
+@app.route("/scheduled")
+def get_scheduled():
+    return jsonify(load_schedule())
+
+@app.route("/templates")
+def get_templates():
+    return jsonify(load_templates())
+
+@app.route("/templates", methods=["POST"])
+def add_new_template():
+    data = request.get_json()
+    question = data.get("question", "").strip()
+    reply = data.get("reply", "").strip()
+
+    if not question or not reply:
+        return jsonify({"error": "Both 'question' and 'reply' are required"}), 400
+
+    add_template(question, reply)
+    return jsonify({"success": True, "question": question, "reply": reply})
 
 @app.route("/status")
 def status():
