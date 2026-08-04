@@ -18,7 +18,7 @@ DELAY_PRESETS = {
     "3_hours": 180,
 }
 
-MAX_BODY_CHARS = 2000  
+MAX_BODY_CHARS = 2000
 
 def is_likely_automated(sender):
     automated_signals = ["noreply", "no-reply", "notification", "donotreply", "do-not-reply"]
@@ -129,6 +129,7 @@ def process_inbox(max_results=5, template_delay_minutes=180):
             try:
                 reply_text = extract_reply_text(draft_reply(email_content))
                 print("Decision: AI-GENERATED")
+                log_ai_handled(email_content, reply_text)
             except Exception as e:
                 print(f"Decision: SKIPPED (AI failed: {e}) - will retry next run")
                 continue
@@ -136,7 +137,7 @@ def process_inbox(max_results=5, template_delay_minutes=180):
         draft = create_reply_draft(service, msg_data, reply_text)
         print(f"Draft created: {draft['id']}")
         mark_processed(msg_id)
-        track_draft(draft["id"], subject, sender, "template" if result["match"] else "ai")
+        track_draft(draft["id"], subject, sender, "template" if result["match"] else "ai", reply_text)
 
         if result["match"]:
             if template_delay_minutes == 0:
@@ -145,7 +146,7 @@ def process_inbox(max_results=5, template_delay_minutes=180):
             else:
                 schedule_send(draft["id"], subject, delay_minutes=template_delay_minutes)
         else:
-            print(" Requires Manual Review To Send")
+            print("  Left as draft only — AI-generated replies always require manual review and send")
 
     if new_count == 0:
         print("No new emails since last run.")
