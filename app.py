@@ -46,14 +46,6 @@ scheduler.add_job(check_inbox_job, "interval", minutes=5, next_run_time=datetime
 scheduler.add_job(send_check_job, "interval", minutes=5, next_run_time=datetime.now())
 scheduler.start()
 
-def find_message_by_subject(service, subject):
-    query = f'subject:"{subject}"'
-    results = service.users().messages().list(userId="me", q=query, maxResults=5).execute()
-    messages = results.get("messages", [])
-    if not messages:
-        return None
-    return service.users().messages().get(userId="me", id=messages[0]["id"]).execute()
-
 @app.route("/scheduled")
 def get_scheduled():
     return jsonify(load_schedule())
@@ -159,6 +151,8 @@ def approve_live():
     data = request.get_json()
     message_id = data.get("message_id")
     reply_text = data.get("reply_text")
+    schedule_only = data.get("schedule_only", False)
+
     if not message_id or not reply_text:
         return jsonify({"error": "message_id and reply_text are required"}), 400
 
@@ -166,6 +160,10 @@ def approve_live():
         service = get_gmail_service()
         msg_data = service.users().messages().get(userId="me", id=message_id).execute()
         draft = create_reply_draft(service, msg_data, reply_text)
+
+        if schedule_only:
+            return jsonify({"success": True, "draft_id": draft["id"]})
+
         service.users().drafts().send(userId="me", body={"id": draft["id"]}).execute()
         mark_processed(message_id)
         return jsonify({"success": True})
@@ -175,6 +173,14 @@ def approve_live():
 @app.route("/status")
 def status():
     return jsonify({"status": "running"})
+
+def find_message_by_subject(service, subject):
+    query = f'subject:"{subject}"'
+    results = service.users().messages().list(userId="me", q=query, maxResults=5).execute()
+    messages = results.get("messages", [])
+    if not messages:
+        return None
+    return service.users().messages().get(userId="me", id=messages[0]["id"]).execute()
 
 if __name__ == "__main__":
     app.run(port=5000)

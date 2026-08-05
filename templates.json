@@ -26,5 +26,45 @@
   {
     "question": "Do you offer refunds?",
     "reply": "Refunds are available within 14 days of purchase with a valid receipt."
+  },
+  {
+    "question": "Can we reschedule our meeting?",
+    "reply": "Of course! Let me know a couple of times that work for you and I'll get it moved."
+  },
+  {
+    "question": "Are you available for a call this week?",
+    "reply": "I should be able to make time this week — could you share a few times that work for you?"
+  },
+  {
+    "question": "What's your office address?",
+    "reply": "Our office is easy to find, and there's parking nearby. Let me know if you'd like directions once you're closer."
+  },
+  {
+    "question": "Do you offer remote or virtual options?",
+    "reply": "Yes, we do offer a virtual option. Let me know if you'd like more details on how that works."
+  },
+  {
+    "question": "How do I pay / what payment methods do you accept?",
+    "reply": "We accept most major cards as well as bank transfer. Let me know if you need the specific payment details."
+  },
+  {
+    "question": "Can you send me a copy of the document?",
+    "reply": "Sure thing, I'll get that sent over to you shortly."
+  },
+  {
+    "question": "Do you have a copy of the syllabus or agenda?",
+    "reply": "Yes, I'll send that over to you shortly."
+  },
+  {
+    "question": "Just following up on my last email",
+    "reply": "Thanks for the nudge — I'm on it and will get back to you with a proper response soon."
+  },
+  {
+    "question": "Any update on my request?",
+    "reply": "Thanks for checking in — I'm still working on this and will follow up with an update soon."
+  },
+  {
+    "question": "Can I speak to someone else on the team?",
+    "reply": "Of course, let me know what this is regarding and I'll point you to the right person."
   }
 ]
