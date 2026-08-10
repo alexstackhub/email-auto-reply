@@ -10,7 +10,7 @@ def get_template_data():
     embeddings = model.encode(questions) if questions else []
     return templates, questions, embeddings
 
-def classify(email_text, threshold=0.6):
+def classify(email_text, threshold=0.65):
     templates, questions, template_embeddings = get_template_data()
     if len(templates) == 0:
         return {"match": False, "score": 0, "template_reply": None}

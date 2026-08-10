@@ -4,15 +4,14 @@ from ai_log import load_ai_log
 SIMILARITY_THRESHOLD = 0.55
 MIN_CLUSTER_SIZE = 3
 
+model = SentenceTransformer("all-MiniLM-L6-v2")
+
 def find_suggested_templates():
     log = load_ai_log()
 
     if len(log) < MIN_CLUSTER_SIZE:
-        print(f"Not enough AI-handled emails yet ({len(log)} logged, need at least {MIN_CLUSTER_SIZE}).")
         return []
 
-    print("Loading model...")
-    model = SentenceTransformer("all-MiniLM-L6-v2")
     texts = [entry["email_text"] for entry in log]
     embeddings = model.encode(texts)
 
@@ -35,16 +34,10 @@ def find_suggested_templates():
             clusters.append(cluster)
 
     if not clusters:
-        print("No repeated patterns found yet.")
         return []
 
     suggestions = []
     for cluster in clusters:
-        print(f"\n{'='*50}")
-        print(f"Found a repeated pattern ({len(cluster)} similar emails):")
-        for idx in cluster:
-            print(f"  - \"{log[idx]['email_text'][:80]}...\"")
-
         rep_idx = min(cluster, key=lambda idx: len(log[idx]["email_text"]))
         suggestion = {
             "question": log[rep_idx]["email_text"],
@@ -52,11 +45,12 @@ def find_suggested_templates():
             "count": len(cluster)
         }
         suggestions.append(suggestion)
-        print(f"\nSuggested new template:")
-        print(f"  Question: {suggestion['question'][:100]}")
-        print(f"  Reply: {suggestion['reply'][:150]}")
 
     return suggestions
 
 if __name__ == "__main__":
-    find_suggested_templates()
+    results = find_suggested_templates()
+    for s in results:
+        print(f"\nQuestion: {s['question'][:100]}")
+        print(f"Reply: {s['reply'][:150]}")
+        print(f"Seen: {s['count']} times")

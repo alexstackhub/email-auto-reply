@@ -27,6 +27,9 @@ def log(message):
     with open("app_log.txt", "a") as f:
         f.write(line + "\n")
 
+# ─── DEMO SETTINGS (change after demo) ───────────────────────────────────────
+# For demo: 5 minutes so everything happens live
+# For real use: change both "5_minutes" to "3_hours" and minutes=5 to minutes=30
 def check_inbox_job():
     log("Checking inbox...")
     try:
@@ -129,19 +132,13 @@ def live_reply():
         full_body = get_email_body(msg_data["payload"]) or msg_data.get("snippet", "")
         email_content = full_body.strip()[:MAX_BODY_CHARS]
 
-        result = classify(email_content)
-        if result["match"]:
-            reply_text = result["template_reply"]
-            reply_type = "template"
-        else:
-            reply_text = extract_reply_text(draft_reply(email_content))
-            reply_type = "ai"
-            log_ai_handled(email_content, reply_text)
+        reply_text = extract_reply_text(draft_reply(email_content))
+        log_ai_handled(email_content, reply_text)
 
         return jsonify({
             "message_id": msg_data["id"],
             "reply_text": reply_text,
-            "type": reply_type
+            "type": "ai"
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -176,11 +173,15 @@ def status():
 
 def find_message_by_subject(service, subject):
     query = f'subject:"{subject}"'
-    results = service.users().messages().list(userId="me", q=query, maxResults=5).execute()
+    results = service.users().messages().list(
+        userId="me", q=query, maxResults=5
+    ).execute()
     messages = results.get("messages", [])
     if not messages:
         return None
-    return service.users().messages().get(userId="me", id=messages[0]["id"]).execute()
+    return service.users().messages().get(
+        userId="me", id=messages[0]["id"]
+    ).execute()
 
 if __name__ == "__main__":
     app.run(port=5000)

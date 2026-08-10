@@ -29,7 +29,11 @@ def get_header(headers, name):
     return next((h["value"] for h in headers if h["name"].lower() == name.lower()), "")
 
 def strip_html(raw_html):
-    text = re.sub(r"<[^>]+>", " ", raw_html)
+    text = re.sub(r"<style[^>]*>.*?</style>", " ", raw_html, flags=re.DOTALL)
+    text = re.sub(r"<script[^>]*>.*?</script>", " ", text, flags=re.DOTALL)
+    text = re.sub(r"<img[^>]*>", " ", text)
+    text = re.sub(r"https?://\S+", " ", text)
+    text = re.sub(r"<[^>]+>", " ", text)
     text = html.unescape(text)
     return re.sub(r"\s+", " ", text).strip()
 
@@ -80,7 +84,7 @@ def create_reply_draft(service, original_msg, reply_text):
     ).execute()
     return draft
 
-def process_inbox(max_results=5, template_delay_minutes=180):
+def process_inbox(max_results=5, template_delay_minutes=5):
     service = get_gmail_service()
     processed_ids = load_processed()
 
@@ -113,7 +117,7 @@ def process_inbox(max_results=5, template_delay_minutes=180):
         print(f"From: {sender}")
         print(f"Subject: {subject}")
         print(f"Preview: {snippet}")
-        print(f"Full body captured: {len(full_body)} chars (using first {len(email_content)})")
+        print(f"Full body captured: {len(full_body)} chars")
 
         if is_likely_automated(sender):
             print("Decision: SKIPPED (looks automated/no-reply)")
@@ -137,19 +141,24 @@ def process_inbox(max_results=5, template_delay_minutes=180):
         draft = create_reply_draft(service, msg_data, reply_text)
         print(f"Draft created: {draft['id']}")
         mark_processed(msg_id)
-        track_draft(draft["id"], subject, sender, "template" if result["match"] else "ai", reply_text)
+        track_draft(draft["id"], subject, sender,
+                    "template" if result["match"] else "ai", reply_text)
 
-        if result["match"]:
-            if template_delay_minutes == 0:
-                service.users().drafts().send(userId="me", body={"id": draft["id"]}).execute()
-                print("  Sent immediately (Auto send)")
-            else:
-                schedule_send(draft["id"], subject, delay_minutes=template_delay_minutes)
+        if template_delay_minutes == 0:
+            service.users().drafts().send(
+                userId="me", body={"id": draft["id"]}
+            ).execute()
+            print("  Sent immediately (Auto send)")
         else:
-            print("  Left as draft only — AI-generated replies always require manual review and send")
+            schedule_send(draft["id"], subject, delay_minutes=template_delay_minutes)
+            print(f"  Scheduled to auto-send in {template_delay_minutes} min "
+                  f"({'template' if result['match'] else 'AI-generated'})")
 
     if new_count == 0:
         print("No new emails since last run.")
 
+# ─── DEMO SETTINGS (change after demo) ───────────────────────────────────────
+# For demo: 5 minutes so everything happens live in front of supervisor
+# For real use: change DELAY_PRESETS["5_minutes"] to DELAY_PRESETS["3_hours"]
 if __name__ == "__main__":
     process_inbox(max_results=5, template_delay_minutes=DELAY_PRESETS["5_minutes"])
