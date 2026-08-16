@@ -17,20 +17,51 @@ def build_known_facts():
             facts.append(f"- {t['reply']}")
     return "\n".join(facts)
 
+def extract_key_point(email_text):
+    prompt = f"""Read this email and extract just the core question, request, or key information in one sentence. Be specific — include any names, dates, topics, or specific details mentioned.
+
+Email:
+\"\"\"
+{email_text[:1000]}
+\"\"\"
+
+Respond with just the one sentence summary, nothing else."""
+
+    try:
+        response = client.models.generate_content(
+            model="gemini-flash-latest",
+            contents=prompt
+        )
+        return response.text.strip()
+    except:
+        return email_text[:200]
+
 def draft_reply(email_text):
     known_facts = build_known_facts()
+    key_point = extract_key_point(email_text)
 
-    prompt = f"""You are helping draft a reply to an email.
+    prompt = f"""You are helping draft a genuine, specific reply to an email.
 
-First, decide if the email's tone is FORMAL or INFORMAL based on its wording, greeting style, and punctuation.
-Then write a reply that matches that same tone.
+First, read the email carefully and identify:
+- The actual question or request being made
+- The tone (FORMAL or INFORMAL)
+- Any specific details mentioned (names, dates, topics, context)
 
-Known facts you are allowed to state (do not invent any specific times, numbers, prices, or policies that are not listed here):
+Then write a reply that:
+- Directly addresses the specific question or request — not a generic acknowledgment
+- References specific details from the email where relevant (shows you actually read it)
+- Matches the tone — casual and warm for informal emails, professional for formal ones
+- Sounds like a real person wrote it, not a template
+- Is 2-4 sentences, ends with an appropriate sign-off
+
+Reference facts (ONLY use these if the email is specifically asking about one of these topics — do NOT include them if the email is about something else entirely):
 {known_facts}
 
-If the email asks about something not covered by the facts above, do NOT guess or make up an answer. Instead, say you'll confirm the exact details and follow up.
+If the email asks about something not covered by the facts above, say you will confirm and follow up — but still acknowledge the specific thing they asked about, not just a generic response.
 
-Keep the reply short (2-4 sentences), polite, and end with a sign-off.
+Important: Do NOT mention office hours, late fees, passwords, refunds, or any other topic from the reference facts unless the email specifically asks about it. Stay focused only on what was actually asked.
+
+Key point extracted from this email: {key_point}
 
 Email to reply to:
 \"\"\"
@@ -63,5 +94,13 @@ def extract_reply_text(model_output):
     return model_output.strip()
 
 if __name__ == "__main__":
-    test_email = "Dear Sir/Madam, I am writing to inquire about the status of my application submitted on July 10th. I would appreciate an update at your earliest convenience. Kind regards, J. Adeyemi"
-    print(draft_reply(test_email))
+    test_emails = [
+        "hey! just wondering if we're still on for tomorrow? lmk what time works, kinda swamped today",
+        "Dear Sir/Madam, I am writing to inquire about the status of my application submitted on July 10th. I would appreciate an update at your earliest convenience. Kind regards, J. Adeyemi",
+        "yo saw the promo you guys sent — that 30% off deal on the premium plan, is that still running or did it end?",
+        "Can you let me know when you will be available to come pick up your graduation certificate and your travel plans?"
+    ]
+    for email in test_emails:
+        print(f"\n--- Testing ---")
+        print(f"Email: {email[:80]}")
+        print(draft_reply(email))
