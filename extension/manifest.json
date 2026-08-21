@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "Email Auto Reply (Dashboard)",
+  "version": "1.0",
+  "description": "View and manage pending drafts, scheduled sends, and template suggestions",
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "host_permissions": ["http://127.0.0.1:5000/*"],
+  "permissions": ["tabs"]
+}
