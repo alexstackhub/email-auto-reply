@@ -17,7 +17,13 @@ def save_schedule(schedule):
 
 def schedule_send(draft_id, subject, delay_minutes=180, jitter_minutes=15):
     schedule = load_schedule()
-    jitter = random.uniform(0, jitter_minutes)
+
+    # Skip jitter for instant sends — adding any delay defeats the purpose
+    if delay_minutes == 0:
+        jitter = 0
+    else:
+        jitter = random.uniform(0, jitter_minutes)
+
     send_at = (datetime.now() + timedelta(minutes=delay_minutes + jitter)).isoformat()
     schedule.append({
         "draft_id": draft_id,
@@ -25,4 +31,8 @@ def schedule_send(draft_id, subject, delay_minutes=180, jitter_minutes=15):
         "send_at": send_at
     })
     save_schedule(schedule)
-    print(f"  Scheduled to auto-send at {send_at} (in ~{delay_minutes}-{delay_minutes + jitter_minutes} min)")
+
+    if delay_minutes == 0:
+        print(f"  Scheduled to send immediately")
+    else:
+        print(f"  Scheduled to auto-send at {send_at} (in ~{delay_minutes}-{delay_minutes + jitter_minutes} min)")

@@ -16,6 +16,7 @@ from classify_email import classify
 from generate_reply import draft_reply, extract_reply_text
 from ai_log import log_ai_handled
 from processed_tracker import mark_processed
+from mode_store import get_mode, set_mode
 
 app = Flask(__name__)
 CORS(app)
@@ -27,13 +28,14 @@ def log(message):
     with open("app_log.txt", "a") as f:
         f.write(line + "\n")
 
-# ─── DEMO SETTINGS (change after demo) ───────────────────────────────────────
-# For demo: 5 minutes so everything happens live
-# For real use: change both "5_minutes" to "3_hours" and minutes=5 to minutes=30
 def check_inbox_job():
     log("Checking inbox...")
     try:
-        process_inbox(max_results=5, template_delay_minutes=DELAY_PRESETS["5_minutes"])
+        current_mode = get_mode()
+        # In hybrid mode, 3-hour window gives humans time to review
+        # In automated mode, delay is 0 since we send instantly
+        delay = DELAY_PRESETS["3_hours"] if current_mode == "hybrid" else DELAY_PRESETS["auto_send"]
+        process_inbox(max_results=5, template_delay_minutes=delay)
     except Exception as e:
         log(f"Inbox check failed: {e}")
 
@@ -46,7 +48,7 @@ def send_check_job():
 
 scheduler = BackgroundScheduler()
 scheduler.add_job(check_inbox_job, "interval", minutes=5, next_run_time=datetime.now())
-scheduler.add_job(send_check_job, "interval", minutes=5, next_run_time=datetime.now())
+scheduler.add_job(send_check_job, "interval", minutes=3, next_run_time=datetime.now())
 scheduler.start()
 
 @app.route("/scheduled")
@@ -122,19 +124,15 @@ def live_reply():
     subject = data.get("subject", "").strip()
     if not subject:
         return jsonify({"error": "subject is required"}), 400
-
     try:
         service = get_gmail_service()
         msg_data = find_message_by_subject(service, subject)
         if not msg_data:
             return jsonify({"error": "No matching email found in your inbox"}), 404
-
         full_body = get_email_body(msg_data["payload"]) or msg_data.get("snippet", "")
         email_content = full_body.strip()[:MAX_BODY_CHARS]
-
         reply_text = extract_reply_text(draft_reply(email_content))
         log_ai_handled(email_content, reply_text)
-
         return jsonify({
             "message_id": msg_data["id"],
             "reply_text": reply_text,
@@ -149,27 +147,49 @@ def approve_live():
     message_id = data.get("message_id")
     reply_text = data.get("reply_text")
     schedule_only = data.get("schedule_only", False)
-
     if not message_id or not reply_text:
         return jsonify({"error": "message_id and reply_text are required"}), 400
-
     try:
         service = get_gmail_service()
         msg_data = service.users().messages().get(userId="me", id=message_id).execute()
         draft = create_reply_draft(service, msg_data, reply_text)
-
         if schedule_only:
             return jsonify({"success": True, "draft_id": draft["id"]})
-
         service.users().drafts().send(userId="me", body={"id": draft["id"]}).execute()
         mark_processed(message_id)
         return jsonify({"success": True})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route("/mode")
+def get_current_mode():
+    return jsonify({"mode": get_mode()})
+
+@app.route("/mode", methods=["POST"])
+def update_mode():
+    data = request.get_json()
+    mode = data.get("mode")
+    try:
+        set_mode(mode)
+
+        # Immediately trigger an inbox check when switching to automated
+        if mode == "automated":
+            scheduler.add_job(
+                check_inbox_job,
+                "date",
+                run_date=datetime.now(),
+                id="immediate_check",
+                replace_existing=True
+            )
+
+        return jsonify({"success": True, "mode": mode})
+
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
 @app.route("/status")
 def status():
-    return jsonify({"status": "running"})
+    return jsonify({"status": "running", "mode": get_mode()})
 
 def find_message_by_subject(service, subject):
     query = f'subject:"{subject}"'

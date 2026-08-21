@@ -9,9 +9,11 @@ from scheduler import schedule_send
 from processed_tracker import load_processed, mark_processed
 from ai_log import log_ai_handled
 from draft_tracker import track_draft
+from mode_store import get_mode
 
 DELAY_PRESETS = {
     "auto_send": 0,
+    "demo": 2,
     "5_minutes": 5,
     "43_minutes": 43,
     "2_hours": 120,
@@ -84,9 +86,10 @@ def create_reply_draft(service, original_msg, reply_text):
     ).execute()
     return draft
 
-def process_inbox(max_results=5, template_delay_minutes=5):
+def process_inbox(max_results=5, template_delay_minutes=180):
     service = get_gmail_service()
     processed_ids = load_processed()
+    current_mode = get_mode()
 
     results = service.users().messages().list(
         userId="me", labelIds=["INBOX", "CATEGORY_PERSONAL"], maxResults=max_results
@@ -144,21 +147,25 @@ def process_inbox(max_results=5, template_delay_minutes=5):
         track_draft(draft["id"], subject, sender,
                     "template" if result["match"] else "ai", reply_text)
 
-        if template_delay_minutes == 0:
+        if current_mode == "automated":
+            # Send immediately — no scheduling, no waiting for next check cycle
             service.users().drafts().send(
                 userId="me", body={"id": draft["id"]}
             ).execute()
-            print("  Sent immediately (Auto send)")
+            print(f"  Sent immediately (automated mode — {'template' if result['match'] else 'AI generated'})")
         else:
-            schedule_send(draft["id"], subject, delay_minutes=template_delay_minutes)
-            print(f"  Scheduled to auto-send in {template_delay_minutes} min "
-                  f"({'template' if result['match'] else 'AI-generated'})")
+            # Hybrid mode — templates and AI both get the review window
+            if template_delay_minutes == 0:
+                service.users().drafts().send(
+                    userId="me", body={"id": draft["id"]}
+                ).execute()
+                print("  Sent immediately (auto_send preset)")
+            else:
+                schedule_send(draft["id"], subject, delay_minutes=template_delay_minutes)
+                print(f"  Scheduled to auto-send in {template_delay_minutes} min (hybrid mode — review window)")
 
     if new_count == 0:
         print("No new emails since last run.")
 
-# ─── DEMO SETTINGS (change after demo) ───────────────────────────────────────
-# For demo: 5 minutes so everything happens live in front of supervisor
-# For real use: change DELAY_PRESETS["5_minutes"] to DELAY_PRESETS["3_hours"]
 if __name__ == "__main__":
-    process_inbox(max_results=5, template_delay_minutes=DELAY_PRESETS["5_minutes"])
+    process_inbox(max_results=5, template_delay_minutes=DELAY_PRESETS["3_hours"])

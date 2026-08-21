@@ -5,3 +5,4 @@ __pycache__/
 .env
 processed_emails.json
 tracked_drafts.json
+system_mode.json
